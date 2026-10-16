@@ -1,38 +1,83 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import API from '../../api';
+
+const categories = [
+  ['CONSULTATION', 'Consultation'],
+  ['LABORATORY', 'Laboratory'],
+  ['RADIOLOGY', 'Radiology'],
+  ['BED_NIGHT', 'Admissions'],
+  ['SURGERY', 'Surgery'],
+  ['NURSING_CARE', 'Nursing care'],
+  ['OTHER', 'Other'],
+];
+
+const initialService = { category: 'CONSULTATION', serviceName: '', serviceCode: '', price: '' };
 
 const ServicesPriceList = () => {
-  const [services, setServices] = useState([
-    { id: 'SVC-01', department: 'Registration', name: 'New Patient Card Creation', code: 'REG-001', price: 2000 },
-    { id: 'SVC-02', department: 'Consultation', name: 'General Practitioner Consultation', code: 'CNS-001', price: 3500 },
-    { id: 'SVC-03', department: 'Consultation', name: 'Specialist / ANC Consultation', code: 'CNS-002', price: 5000 },
-    { id: 'SVC-04', department: 'Laboratory', name: 'Urinalysis Test', code: 'LAB-012', price: 2500 },
-    { id: 'SVC-05', department: 'Laboratory', name: 'Full Blood Count (FBC)', code: 'LAB-045', price: 4000 },
-    { id: 'SVC-06', department: 'Radiology', name: 'Obstetric Ultrasound (USS)', code: 'RAD-008', price: 6500 },
-    { id: 'SVC-07', department: 'Admissions', name: 'General Ward Bed Space (Per Night)', code: 'ADM-001', price: 8000 },
-  ]);
+  const [services, setServices] = useState([]);
+  const [newService, setNewService] = useState(initialService);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [newService, setNewService] = useState({ department: 'Consultation', name: '', code: '', price: '' });
-  const [editingId, setEditingId] = useState(null);
+  const fetchServices = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const { data } = await API.get('/settings/tariffs');
+      setServices(data.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load service tariffs.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleAddService = (e) => {
-    e.preventDefault();
-    if (!newService.name || !newService.price) return;
-    
-    setServices([
-      ...services,
-      {
-        id: `SVC-0${services.length + 1}`,
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
+  const handleAddService = async (event) => {
+    event.preventDefault();
+    if (!newService.serviceName.trim() || newService.price === '') {
+      setError('Service name and price are required.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError('');
+      setMessage('');
+      const { data } = await API.post('/settings/tariffs', {
         ...newService,
         price: Number(newService.price),
-      },
-    ]);
-    setNewService({ department: 'Consultation', name: '', code: '', price: '' });
+      });
+      setServices((current) => [...current, data.data].sort((a, b) =>
+        a.category.localeCompare(b.category) || a.serviceName.localeCompare(b.serviceName)
+      ));
+      setNewService(initialService);
+      setMessage('Tariff added.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add tariff.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handlePriceChange = (id, newPrice) => {
-    setServices(
-      services.map((s) => (s.id === id ? { ...s, price: Number(newPrice) } : s))
-    );
+  const handlePriceChange = async (service, value) => {
+    const price = Number(value);
+    if (value === '' || !Number.isFinite(price) || price < 0 || price === service.price) return;
+
+    try {
+      setError('');
+      setMessage('');
+      const { data } = await API.put(`/settings/tariffs/${service._id}`, { price });
+      setServices((current) => current.map((item) => item._id === service._id ? data.data : item));
+      setMessage(`${service.serviceName} tariff updated.`);
+    } catch (err) {
+      setError(err.response?.data?.message || `Failed to update ${service.serviceName}.`);
+    }
   };
 
   return (
@@ -42,68 +87,63 @@ const ServicesPriceList = () => {
         <p className="text-sm text-gray-500">Configure baseline prices for hospital tariffs, consultations, labs, and bed fees.</p>
       </div>
 
-      {/* Add New Service Form */}
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{message}</p>}
+
       <form onSubmit={handleAddService} className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
         <h3 className="font-bold text-sm text-gray-800 uppercase tracking-wide">Add New Tariff Item</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Department</label>
+          <label className="text-[10px] font-bold text-gray-500 uppercase">
+            Department
             <select
-              value={newService.department}
-              onChange={(e) => setNewService({ ...newService, department: e.target.value })}
-              className="w-full border rounded-lg p-2 text-sm outline-none"
+              value={newService.category}
+              onChange={(e) => setNewService({ ...newService, category: e.target.value })}
+              className="mt-1 w-full border rounded-lg p-2 text-sm font-normal normal-case text-gray-800"
             >
-              <option value="Registration">Registration</option>
-              <option value="Consultation">Consultation</option>
-              <option value="Laboratory">Laboratory</option>
-              <option value="Radiology">Radiology</option>
-              <option value="Pharmacy">Pharmacy</option>
-              <option value="Admissions">Admissions</option>
+              {categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Service Name</label>
+          </label>
+          <label className="text-[10px] font-bold text-gray-500 uppercase">
+            Service Name
             <input
-              type="text"
-              placeholder="e.g. Chest X-Ray"
-              value={newService.name}
-              onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-              className="w-full border rounded-lg p-2 text-sm outline-none"
+              required
+              value={newService.serviceName}
+              onChange={(e) => setNewService({ ...newService, serviceName: e.target.value })}
+              className="mt-1 w-full border rounded-lg p-2 text-sm font-normal normal-case"
             />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Service Code</label>
+          </label>
+          <label className="text-[10px] font-bold text-gray-500 uppercase">
+            Service Code
             <input
-              type="text"
-              placeholder="e.g. RAD-010"
-              value={newService.code}
-              onChange={(e) => setNewService({ ...newService, code: e.target.value })}
-              className="w-full border rounded-lg p-2 text-sm outline-none font-mono"
+              value={newService.serviceCode}
+              onChange={(e) => setNewService({ ...newService, serviceCode: e.target.value })}
+              className="mt-1 w-full border rounded-lg p-2 text-sm font-mono font-normal normal-case"
             />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Price (₦)</label>
-            <div className="flex gap-2">
+          </label>
+          <div className="flex items-end gap-2">
+            <label className="flex-1 text-[10px] font-bold text-gray-500 uppercase">
+              Price (₦)
               <input
+                required
+                min="0"
                 type="number"
-                placeholder="5000"
                 value={newService.price}
                 onChange={(e) => setNewService({ ...newService, price: e.target.value })}
-                className="w-full border rounded-lg p-2 text-sm outline-none font-mono"
+                className="mt-1 w-full border rounded-lg p-2 text-sm font-mono font-normal normal-case"
               />
-              <button
-                type="submit"
-                className="bg-blue-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap"
-              >
-                + Add
-              </button>
-            </div>
+            </label>
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-blue-600 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap disabled:opacity-50"
+            >
+              {saving ? 'Adding...' : '+ Add'}
+            </button>
           </div>
         </div>
       </form>
 
-      {/* Services Table */}
-      <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white border rounded-xl shadow-sm overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 border-b text-xs font-bold text-gray-600 uppercase">
             <tr>
@@ -114,20 +154,26 @@ const ServicesPriceList = () => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {services.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50">
-                <td className="p-4 font-mono font-bold text-xs text-blue-600">{s.code || s.id}</td>
+            {loading ? (
+              <tr><td colSpan="4" className="p-4 text-center text-gray-500">Loading tariffs...</td></tr>
+            ) : services.length === 0 ? (
+              <tr><td colSpan="4" className="p-4 text-center text-gray-500">No tariffs configured.</td></tr>
+            ) : services.map((service) => (
+              <tr key={service._id} className="hover:bg-gray-50">
+                <td className="p-4 font-mono font-bold text-xs text-blue-600">{service.serviceCode || '—'}</td>
                 <td className="p-4">
                   <span className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded font-bold">
-                    {s.department}
+                    {categories.find(([value]) => value === service.category)?.[1] || service.category}
                   </span>
                 </td>
-                <td className="p-4 font-semibold text-gray-800">{s.name}</td>
+                <td className="p-4 font-semibold text-gray-800">{service.serviceName}</td>
                 <td className="p-4 text-right">
                   <input
                     type="number"
-                    value={s.price}
-                    onChange={(e) => handlePriceChange(s.id, e.target.value)}
+                    min="0"
+                    defaultValue={service.price}
+                    key={`${service._id}-${service.price}`}
+                    onBlur={(e) => handlePriceChange(service, e.target.value)}
                     className="w-28 border rounded p-1 text-right font-mono font-bold text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </td>

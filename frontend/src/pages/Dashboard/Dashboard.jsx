@@ -31,18 +31,22 @@ export default function Dashboard({ onNavigate }) {
   });
   const [recentPatients, setRecentPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        setError("");
         const { data } = await API.get("/dashboard/summary");
-        if (data?.success) {
-          setStats(data.stats || stats);
-          setRecentPatients(data.recentPatients || []);
+        if (!data?.success || !data.stats) {
+          throw new Error(data?.message || "Dashboard response was incomplete.");
         }
+        setStats(data.stats);
+        setRecentPatients(data.recentPatients || []);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load dashboard data.");
       } finally {
         setLoading(false);
       }
@@ -142,12 +146,14 @@ export default function Dashboard({ onNavigate }) {
         </div>
       </div>
 
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
       {/* TOP LEVEL: Live Operational Indicators */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Total Patients</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-900">{stats.totalPatients}</p>
+            <p className="text-lg md:text-2xl font-bold text-gray-900">{loading || error ? "—" : stats.totalPatients}</p>
           </div>
           <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
             <Users size={20} />
@@ -157,7 +163,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Pending Rx</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-900">{stats.pendingPrescriptions}</p>
+            <p className="text-lg md:text-2xl font-bold text-gray-900">{loading || error ? "—" : stats.pendingPrescriptions}</p>
           </div>
           <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
             <Clock size={20} />
@@ -167,7 +173,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Low Stock</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-900">{stats.lowStockCount}</p>
+            <p className="text-lg md:text-2xl font-bold text-gray-900">{loading || error ? "—" : stats.lowStockCount}</p>
           </div>
           <div className="p-2.5 bg-rose-50 text-rose-600 rounded-lg">
             <AlertTriangle size={20} />
@@ -177,7 +183,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Unpaid Invoices</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-900">{stats.unpaidInvoiceCount}</p>
+            <p className="text-lg md:text-2xl font-bold text-gray-900">{loading || error ? "—" : stats.unpaidInvoiceCount}</p>
           </div>
           <div className="p-2.5 bg-purple-50 text-purple-600 rounded-lg">
             <Receipt size={20} />
@@ -285,8 +291,8 @@ export default function Dashboard({ onNavigate }) {
               className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center active:bg-gray-100 transition-colors"
             >
               <div>
-                <p className="font-semibold text-sm text-gray-900">{patient.name}</p>
-                <p className="text-xs text-gray-500">ID: {patient.cardNo || patient._id?.substring(0, 8)}</p>
+                <p className="font-semibold text-sm text-gray-900">{[patient.firstName, patient.lastName].filter(Boolean).join(" ")}</p>
+                <p className="text-xs text-gray-500">ID: {patient.patientId || patient._id?.substring(0, 8)}</p>
               </div>
               <div className="text-right">
                 <span className="inline-block px-2 py-0.5 font-medium rounded-full text-xs bg-slate-200 text-slate-800 capitalize">
@@ -314,8 +320,8 @@ export default function Dashboard({ onNavigate }) {
             <tbody className="divide-y divide-gray-50">
               {recentPatients.map((patient) => (
                 <tr key={patient._id || patient.id} className="hover:bg-gray-50/50">
-                  <td className="py-3 font-medium text-gray-900">{patient.name}</td>
-                  <td className="py-3 text-gray-500">{patient.cardNo || "N/A"}</td>
+                  <td className="py-3 font-medium text-gray-900">{[patient.firstName, patient.lastName].filter(Boolean).join(" ")}</td>
+                  <td className="py-3 text-gray-500">{patient.patientId || "N/A"}</td>
                   <td className="py-3 text-gray-500 capitalize">{patient.gender || "N/A"}</td>
                   <td className="py-3 text-right">
                     <button

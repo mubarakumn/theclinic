@@ -1,70 +1,42 @@
-import Patient from "../models/Patient.js";
-import Prescription from "../models/Prescription.js";
-import InventoryItem from "../models/InventoryItem.js";
-import Invoice from "../models/Invoice.js";
-import Bed from "../models/Bed.js";
+import Patient from '../models/Patient.js';
+import Prescription from '../models/Prescription.js';
+import InventoryItem from '../models/InventoryItem.js';
+import Invoice from '../models/Invoice.js';
+import Bed from '../models/Bed.js';
 
-/**
- * @desc    Get dashboard summary statistics & recent patient queue
- * @route   GET /api/dashboard/summary
- * @access  Private (admin, super_admin, doctor, receptionist, staff)
- */
 export const getDashboardSummary = async (req, res) => {
   try {
+    const tenantId = req.user.tenantId;
     const [
-      totalActivePatients,
+      totalPatients,
       pendingPrescriptions,
       lowStockCount,
       bedStats,
-      unpaidInvoiceStats,
+      unpaidInvoiceCount,
       recentPatients,
     ] = await Promise.all([
-      // 1. Total active patients
-      Patient.countDocuments({ isActive: true }),
-
-      // 2. Pending prescriptions in Pharmacy
-      Prescription.countDocuments({ status: "Pending" }),
-
-      // 3. Low-stock inventory items
+      Patient.countDocuments({ tenantId }),
+      Prescription.countDocuments({ tenantId, status: 'PRESCRIBED' }),
       InventoryItem.countDocuments({
+        tenantId,
         isActive: true,
-        $expr: { $lte: ["$quantity", "$reorderLevel"] },
+        $expr: { $lte: ['$quantity', '$reorderLevel'] },
       }),
-
-      // 4. Bed occupancy statistics
       Bed.aggregate([
+        { $match: { tenantId } },
         {
           $group: {
             _id: null,
             totalBeds: { $sum: 1 },
-            occupiedBeds: {
-              $sum: { $cond: [{ $eq: ["$isOccupied", true] }, 1, 0] },
-            },
+            occupiedBeds: { $sum: { $cond: [{ $eq: ['$isOccupied', true] }, 1, 0] } },
           },
         },
       ]),
-
-      // 5. Unpaid invoice balances
-      Invoice.aggregate([
-        {
-          $match: {
-            status: { $in: ["Issued", "Partially Paid"] },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalUnpaidBalance: { $sum: "$balance" },
-            unpaidInvoiceCount: { $sum: 1 },
-          },
-        },
-      ]),
-
-      // 6. Recent patient list (5 most recent)
-      Patient.find({ isActive: true })
+      Invoice.countDocuments({ tenantId, status: 'UNPAID' }),
+      Patient.find({ tenantId })
         .sort({ createdAt: -1 })
         .limit(5)
-        .select("name cardNo gender status createdAt"),
+        .select('firstName lastName patientId gender createdAt'),
     ]);
 
     const totalBeds = bedStats[0]?.totalBeds || 0;
@@ -73,19 +45,18 @@ export const getDashboardSummary = async (req, res) => {
     res.status(200).json({
       success: true,
       stats: {
-        totalPatients: totalActivePatients,
+        totalPatients,
         pendingPrescriptions,
         lowStockCount,
         totalBeds,
         occupiedBeds,
         availableBeds: totalBeds - occupiedBeds,
-        unpaidInvoiceCount: unpaidInvoiceStats[0]?.unpaidInvoiceCount || 0,
-        totalUnpaidBalance: unpaidInvoiceStats[0]?.totalUnpaidBalance || 0,
+        unpaidInvoiceCount,
       },
       recentPatients,
     });
   } catch (error) {
-    console.error("Get Dashboard Summary Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error('Get Dashboard Summary Error:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, UserCheck, UserX, KeyRound } from "lucide-react";
+import { Plus, Edit2, UserCheck, UserX, Mail } from "lucide-react";
 import Modal from "../../components/Modal";
 import API from "../../api";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,7 +12,7 @@ export default function Users() {
     currentUserRole === ROLES.ADMIN || currentUserRole === ROLES.SUPER_ADMIN;
 
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
 
   // Filter out system roles if needed, use normalized backend enum list
@@ -33,15 +33,9 @@ export default function Users() {
     lastName: "",
     email: "",
     phone: "",
-    password: "",
     role: ROLES.RECEPTIONIST,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Password reset modal states
-  const [resetUser, setResetUser] = useState(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -60,7 +54,25 @@ export default function Users() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    let cancelled = false;
+    API.get("/users")
+      .then(({ data }) => {
+        if (cancelled) return;
+        const fetchedList =
+          data?.users || data?.data || (Array.isArray(data) ? data : []);
+        setUsers(fetchedList);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to fetch users:", err);
+        alert(err.response?.data?.message || "Failed to load staff list.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleOpenModal = (targetUser = null) => {
@@ -70,7 +82,6 @@ export default function Users() {
         lastName: targetUser.lastName,
         email: targetUser.email || "",
         phone: targetUser.phone || "",
-        password: "",
         role: targetUser.role?.toUpperCase() || ROLES.RECEPTIONIST,
       });
       setEditingId(targetUser._id || targetUser.id);
@@ -80,7 +91,6 @@ export default function Users() {
         lastName: "",
         email: "",
         phone: "",
-        password: "",
         role: ROLES.RECEPTIONIST,
       });
       setEditingId(null);
@@ -100,11 +110,11 @@ export default function Users() {
           phone: form.phone,
           role: form.role,
         };
-        await API.patch(`/users/${editingId}`, updatePayload);
+        await API.put(`/users/${editingId}`, updatePayload);
         alert("Staff user updated successfully");
       } else {
-        await API.post("/users", form);
-        alert("Staff account created successfully");
+        const { data } = await API.post("/users", form);
+        alert(data.message || "Invitation email sent successfully");
       }
       fetchUsers();
       setIsModalOpen(false);
@@ -115,30 +125,14 @@ export default function Users() {
     }
   };
 
-  const handleOpenResetModal = (targetUser) => {
-    setResetUser(targetUser);
-    setNewPassword("");
-    setIsResetModalOpen(true);
-  };
-
-  const handlePasswordResetSubmit = async (e) => {
-    e.preventDefault();
-    if (!newPassword || newPassword.length < 6) {
-      alert("Password must be at least 6 characters long.");
-      return;
-    }
-    const targetId = resetUser?._id || resetUser?.id;
+  const handleResendInvitation = async (targetUser) => {
+    const targetId = targetUser._id || targetUser.id;
     try {
-      await API.patch(`/users/${targetId}/reset-password`, {
-        newPassword,
-      });
-      alert(
-        `Password for ${resetUser.name || resetUser.email} reset successfully.`,
-      );
-      setIsResetModalOpen(false);
-      setResetUser(null);
+      const { data } = await API.post(`/users/${targetId}/resend-invitation`);
+      alert(data.message || `Invitation resent to ${targetUser.email}`);
+      fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to reset password.");
+      alert(err.response?.data?.message || "Failed to send staff invitation.");
     }
   };
 
@@ -149,9 +143,7 @@ export default function Users() {
 
     if (window.confirm(`Are you sure you want to ${action} this user?`)) {
       try {
-        await API.patch(`/users/${targetId}/status`, {
-          isActive: !isCurrentlyActive,
-        });
+        await API.patch(`/users/${targetId}/toggle-active`);
         alert(`User ${action}d successfully`);
         fetchUsers();
       } catch (err) {
@@ -210,6 +202,7 @@ export default function Users() {
               {users.map((item) => {
                 const userId = item._id || item.id;
                 const activeState = item.isActive ?? true;
+                const invitationPending = item.invitationPending;
 
                 return (
                   <tr key={userId} className="hover:bg-gray-50/50">
@@ -232,10 +225,16 @@ export default function Users() {
                         className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                           activeState
                             ? "bg-emerald-50 text-emerald-700"
-                            : "bg-rose-50 text-rose-700"
+                            : invitationPending
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-rose-50 text-rose-700"
                         }`}
                       >
-                        {activeState ? "Active" : "Inactive"}
+                        {activeState
+                          ? "Active"
+                          : invitationPending
+                            ? item.invitationExpired ? "Invitation expired" : "Invitation pending"
+                            : "Inactive"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-right">
@@ -249,13 +248,16 @@ export default function Users() {
                             >
                               <Edit2 size={16} />
                             </button>
-                            <button
-                              title="Reset Password"
-                              className="p-1.5 text-amber-600 hover:text-amber-800 rounded-md hover:bg-amber-50 transition-colors"
-                              onClick={() => handleOpenResetModal(item)}
-                            >
-                              <KeyRound size={16} />
-                            </button>
+                            {invitationPending && (
+                              <button
+                                title="Resend invitation email"
+                                aria-label={`Resend invitation to ${item.email}`}
+                                className="p-1.5 text-amber-600 hover:text-amber-800 rounded-md hover:bg-amber-50 transition-colors"
+                                onClick={() => handleResendInvitation(item)}
+                              >
+                                <Mail size={16} />
+                              </button>
+                            )}
                             <button
                               title={
                                 activeState
@@ -268,6 +270,8 @@ export default function Users() {
                                   : "text-emerald-600"
                               }`}
                               onClick={() => handleToggleStatus(item)}
+                              disabled={invitationPending}
+                              aria-label={`${activeState ? "Deactivate" : "Activate"} ${item.email}`}
                             >
                               {activeState ? (
                                 <UserX size={16} />
@@ -301,7 +305,7 @@ export default function Users() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? "Edit Staff Details" : "Create Staff Member"}
+        title={editingId ? "Edit Staff Details" : "Invite Staff Member"}
       >
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="flex gap-2 ">
@@ -339,8 +343,9 @@ export default function Users() {
             <input
               type="email"
               name="email"
-              className="w-full px-3 py-2 border rounded-lg text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full px-3 py-2 border rounded-lg text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-900 disabled:bg-gray-100"
               required
+              disabled={Boolean(editingId)}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
@@ -358,20 +363,9 @@ export default function Users() {
             />
           </div>
           {!editingId && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                className="w-full px-3 py-2 border rounded-lg text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                required
-                minLength={6}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-            </div>
+            <p className="text-sm text-gray-500">
+              We’ll email a secure, time-limited invitation so this staff member can create their own password.
+            </p>
           )}
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
@@ -403,54 +397,12 @@ export default function Users() {
               disabled={loading}
               className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
             >
-              {editingId ? "Update Account" : "Create Account"}
+              {editingId ? "Update Account" : "Send Invitation"}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Admin Reset Password Modal */}
-      <Modal
-        isOpen={isResetModalOpen}
-        onClose={() => setIsResetModalOpen(false)}
-        title={`Reset Password for ${resetUser?.name || resetUser?.email || ""}`}
-      >
-        <form onSubmit={handlePasswordResetSubmit} className="space-y-4 pt-2">
-          <p className="text-sm text-gray-500">
-            Enter a new temporary password for{" "}
-            <strong>{resetUser?.email}</strong>.
-          </p>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-              New Password
-            </label>
-            <input
-              type="password"
-              className="w-full px-3 py-2 border rounded-lg text-sm border-gray-300 focus:ring-2 focus:ring-slate-900 focus:outline-none"
-              required
-              minLength={6}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Minimum 6 characters"
-            />
-          </div>
-          <div className="pt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
-              onClick={() => setIsResetModalOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
-            >
-              Reset Password
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

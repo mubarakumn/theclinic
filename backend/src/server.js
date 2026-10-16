@@ -22,6 +22,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import auditLogRoutes from './routes/auditLogRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import rolesRoutes from './routes/roleRoutes.js';
+import IdempotencyRecord from "./models/IdempotencyRecord.js";
 
 dotenv.config();
 
@@ -53,18 +54,17 @@ app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/subscription', subscriptionRoutes);
-app.use('/api/v1/roles', rolesRoutes)
+app.use('/api/v1/roles', rolesRoutes);
 
-
-app.listen(config.PORT, () => {
-  console.log(`Server running on port ${config.PORT}`);
-});
 
 mongoose.connect(config.MONGODBURL)
-  .then(() => {
+  .then(async () => {
+    await IdempotencyRecord.init();
     console.log("Connected to MongoDB");
+    app.listen(config.PORT, () => {
+      console.log(`Server running on port ${config.PORT}`);
+    });
   })
   .catch((error) => {
     console.error("Error connecting to MongoDB:", error.message);
   });
-

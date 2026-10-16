@@ -1,8 +1,8 @@
 export function register() {
-  if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+  if ("serviceWorker" in navigator && import.meta.env.PROD) {
     window.addEventListener("load", () => {
       navigator.serviceWorker
-        .register("/service-worker.js")
+        .register("/service-worker.js", { scope: "/" })
         .then((registration) => {
           console.log(
             "Clinic HMS ServiceWorker registered: ",

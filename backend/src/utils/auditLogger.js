@@ -8,10 +8,10 @@ export const logAction = async ({
   metadata = {},
 }) => {
   try {
-    if (!req.user || !req.tenantId) return;
+    if (!req?.user?.tenantId) return;
 
     await AuditLog.create({
-      tenantId: req.tenantId,
+      tenantId: req.user.tenantId,
       userId: req.user._id,
       userName: `${req.user.firstName} ${req.user.lastName}`,
       userRole: req.user.role,

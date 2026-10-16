@@ -11,7 +11,6 @@ const inventoryItemSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     category: {
@@ -42,5 +41,7 @@ const inventoryItemSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+inventoryItemSchema.index({ tenantId: 1, name: 1 }, { unique: true });
 
 export default mongoose.model("InventoryItem", inventoryItemSchema);

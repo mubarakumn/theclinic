@@ -1,5 +1,6 @@
 import { Menu, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import OfflineSyncStatus from "../components/OfflineSyncStatus";
 import Swal from "sweetalert2";
 
 export default function Header({ onMenuClick, isMobile }) {
@@ -30,7 +31,8 @@ export default function Header({ onMenuClick, isMobile }) {
           <Menu size={24} />
         </button>
       )}
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-3 md:gap-4">
+        <OfflineSyncStatus />
         <span className="text-sm font-medium text-gray-700">
           {user?.firstName} ({user?.role})
         </span>

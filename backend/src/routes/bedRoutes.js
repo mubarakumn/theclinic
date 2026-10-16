@@ -16,16 +16,16 @@ router.use(protect);
 // --- Bed Management Routes ---
 router
   .route("/")
-  .post(authorize("admin", "super_admin"), createBed)
+  .post(authorize("ADMIN", "SUPER_ADMIN"), createBed)
   .get(getBeds); // All staff can view beds
 
 router
   .route("/:id")
   .get(getBedById) // All staff can view a single bed
-  .patch(authorize("admin", "super_admin"), updateBed);
+  .patch(authorize("ADMIN", "SUPER_ADMIN"), updateBed);
 
 // --- Bed Occupancy Routes ---
-const occupancyRoles = ["doctor", "nurse", "admin", "super_admin"];
+const occupancyRoles = ["DOCTOR", "NURSE", "RECEPTIONIST", "ADMIN", "SUPER_ADMIN"];
 
 router.post("/:id/assign", authorize(...occupancyRoles), assignPatientToBed);
 router.post("/:id/release", authorize(...occupancyRoles), releaseBed);

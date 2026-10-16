@@ -1,11 +1,18 @@
 // controllers/antenatalController.js
 import AntenatalRecord from '../models/AntenatalRecord.js';
+import Patient from '../models/Patient.js';
 import getNextSequence from '../utils/getNextSequence.js';
 
 export const enrollAntenatal = async (req, res) => {
   try {
     const { patientId, lmp, gravida, para, riskFactors, bloodGroup, genotype } = req.body;
     const lmpDate = new Date(lmp);
+    if (!patientId || !lmp || Number.isNaN(lmpDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'A valid patient and last menstrual period are required' });
+    }
+
+    const patient = await Patient.findOne({ _id: patientId, tenantId: req.tenantId });
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
 
     // Calculate EDD (+7 days, -3 months, +1 year)
     const eddDate = new Date(lmpDate);
@@ -13,11 +20,11 @@ export const enrollAntenatal = async (req, res) => {
     eddDate.setMonth(eddDate.getMonth() - 3);
     eddDate.setFullYear(eddDate.getFullYear() + 1);
 
-    const ancSeq = await getNextSequence(req.user.tenantId, 'ANC');
+    const ancSeq = await getNextSequence(req.tenantId, 'ANC');
     const ancNumber = `ANC-${new Date().getFullYear()}-${ancSeq.toString().padStart(4, '0')}`;
 
     const record = await AntenatalRecord.create({
-      tenantId: req.user.tenantId,
+      tenantId: req.tenantId,
       patientId,
       ancNumber,
       lmp: lmpDate,
@@ -37,8 +44,8 @@ export const enrollAntenatal = async (req, res) => {
 
 export const getAntenatalRecords = async (req, res) => {
   try {
-    const records = await AntenatalRecord.find({ tenantId: req.user.tenantId })
-      .populate('patientId', 'firstName lastName phone mrn')
+    const records = await AntenatalRecord.find({ tenantId: req.tenantId })
+      .populate({ path: 'patientId', match: { tenantId: req.tenantId }, select: 'firstName lastName phone patientId' })
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, data: records });
@@ -50,7 +57,7 @@ export const getAntenatalRecords = async (req, res) => {
 export const addAntenatalVisit = async (req, res) => {
   try {
     const { fundalHeightCm, fetalHeartRate, bloodPressure, weightKg, notes } = req.body;
-    const record = await AntenatalRecord.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const record = await AntenatalRecord.findOne({ _id: req.params.id, tenantId: req.tenantId });
 
     if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
 

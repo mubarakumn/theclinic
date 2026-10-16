@@ -12,17 +12,17 @@ const router = express.Router();
 
 router.use(protect);
 
-const viewRoles = ["doctor", "pharmacist", "admin", "super_admin"];
+const viewRoles = ["DOCTOR", "PHARMACIST", "ADMIN", "SUPER_ADMIN"];
 
 router.route("/")
   .get(authorize(...viewRoles), getPrescriptions)
-  .post(authorize("doctor"), createPrescription);
+  .post(authorize("DOCTOR"), createPrescription);
 
 router.route("/:id")
   .get(authorize(...viewRoles), getPrescriptionById);
 
-router.post("/:id/dispense", authorize("pharmacist"), dispensePrescription);
+router.post("/:id/dispense", authorize("PHARMACIST"), dispensePrescription);
 
-router.patch("/:id/status", authorize("doctor", "admin", "super_admin"), cancelPrescription);
+router.patch("/:id/status", authorize("DOCTOR", "ADMIN", "SUPER_ADMIN"), cancelPrescription);
 
 export default router;

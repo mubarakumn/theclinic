@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
+import Tenant from "../models/Tenant.js";
 import config from "../config/config.js";
+import { idempotencyMiddleware } from "./idempotencyMiddleware.js";
 
 /**
  * @desc    Protect routes - verifies JWT from cookies or Authorization header
@@ -37,10 +39,22 @@ export const protect = async (req, res, next) => {
     if (!user.isActive) {
       return res.status(403).json({ message: "User account is inactive" });
     }
+
+    if (
+      !user.tenantId ||
+      !decoded.tenantId ||
+      user.tenantId.toString() !== decoded.tenantId.toString()
+    ) {
+      return res.status(401).json({ message: "Not authorized for this clinic" });
+    }
+    if (!(await Tenant.exists({ _id: user.tenantId }))) {
+      return res.status(401).json({ message: "Clinic not found" });
+    }
     
     req.user = user;
+    req.tenantId = user.tenantId;
 
-    next();
+    return idempotencyMiddleware(req, res, next);
   } catch (error) {
     console.error("JWT Verification Error:", error.message);
     return res.status(401).json({ message: "Not authorized, token failed or expired" });
@@ -59,14 +73,17 @@ export const requirePermission = (requiredPermission) => {
         .json({ message: "Forbidden: No assigned user role found" });
     }
 
-    // Bypass check for super_admin
-    if (req.user.role === "super_admin") {
+    const roleName = req.user.role.toUpperCase();
+
+    // The clinic's initial super admin can always manage roles, even before role records are seeded.
+    if (roleName === "SUPER_ADMIN") {
       return next();
     }
 
     try {
-      // Lookup permissions from the Role collection in database
-      const role = await Role.findOne({ name: req.user.role });
+      const tenant = await Tenant.findById(req.tenantId).select("rolePermissions");
+      const tenantRole = tenant?.rolePermissions?.find((role) => role.name === roleName);
+      const role = tenantRole || await Role.findOne({ name: roleName });
 
       if (!role || !Array.isArray(role.permissions) || !role.permissions.includes(requiredPermission)) {
         return res.status(403).json({

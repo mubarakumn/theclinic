@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
+  const [clinicCode, setClinicCode] = useState(
+    () => searchParams.get('clinic') || '',
+  );
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +19,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, clinicCode);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid credentials');
@@ -37,6 +41,10 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-slate-700">Email Address</label>
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 border p-2 shadow-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Clinic Code <span className="font-normal text-slate-500">(if your email is used at multiple clinics)</span></label>
+              <input type="text" autoComplete="organization" value={clinicCode} onChange={(e) => setClinicCode(e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 border p-2 shadow-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Password</label>

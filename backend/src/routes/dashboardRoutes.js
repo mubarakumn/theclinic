@@ -7,7 +7,17 @@ const router = express.Router();
 
 router.use(protect);
 
-const dashboardRoles = ["SUPER_ADMIN", "admin", "doctor", "receptionist"];
+const dashboardRoles = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "DOCTOR",
+  "NURSE",
+  "PHARMACIST",
+  "LAB_TECH",
+  "RADIOLOGIST",
+  "ACCOUNTANT",
+  "RECEPTIONIST",
+];
 
 router.get("/summary", authorize(...dashboardRoles), getDashboardSummary);
 

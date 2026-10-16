@@ -5,6 +5,7 @@ import {
   getUserById,
   updateUser,
   toggleUserActiveStatus,
+  resendStaffInvitation,
 } from '../controllers/userController.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 
@@ -21,6 +22,8 @@ router.route('/')
 router.route('/:id')
   .get(authorize('ADMIN', 'SUPER_ADMIN'), getUserById)
   .put(authorize('ADMIN', 'SUPER_ADMIN'), updateUser);
+
+router.post('/:id/resend-invitation', authorize('ADMIN', 'SUPER_ADMIN'), resendStaffInvitation);
 
 router.route('/:id/toggle-active')
   .patch(authorize('ADMIN', 'SUPER_ADMIN'), toggleUserActiveStatus);

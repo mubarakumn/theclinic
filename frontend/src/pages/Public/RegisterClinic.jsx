@@ -30,7 +30,7 @@ export default function RegisterClinic() {
       const res = await registerTenant(formData);
       if ( res.status === 201 ){
         setMessage(res.message);
-        navigate('/login');
+        navigate(`/login?clinic=${encodeURIComponent(formData.clinicCode.trim())}`);
       }else {
         setError(res.message);
       }

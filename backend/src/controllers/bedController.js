@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import Bed from "../models/Bed.js";
 import Patient from "../models/Patient.js";
 
-const populateFields = [
-  { path: "currentPatient", select: "patientId firstName lastName" },
+const populateFields = (tenantId) => [
+  { path: "currentPatient", match: { tenantId }, select: "patientId firstName lastName" },
 ];
 
 /**
@@ -21,7 +21,7 @@ export const createBed = async (req, res) => {
   }
 
   try {
-    const bed = await Bed.create({ wardName, bedNumber });
+    const bed = await Bed.create({ tenantId: req.user.tenantId, wardName, bedNumber });
     res
       .status(201)
       .json({ success: true, message: "Bed created successfully", bed });
@@ -45,7 +45,7 @@ export const createBed = async (req, res) => {
 export const getBeds = async (req, res) => {
   try {
     const { ward, isOccupied, page = 1, limit = 20 } = req.query;
-    const query = {};
+    const query = { tenantId: req.user.tenantId };
 
     if (ward) query.wardName = { $regex: ward, $options: "i" };
     if (isOccupied !== undefined) query.isOccupied = isOccupied === "true";
@@ -62,7 +62,7 @@ export const getBeds = async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     const total = await Bed.countDocuments(query);
     const beds = await Bed.find(query)
-      .populate(populateFields)
+      .populate(populateFields(req.tenantId))
       .sort({ wardName: 1, bedNumber: 1 })
       .skip(skip)
       .limit(limitNum);
@@ -93,7 +93,8 @@ export const getBedById = async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid bed ID" });
   }
   try {
-    const bed = await Bed.findById(req.params.id).populate(populateFields);
+    const bed = await Bed.findOne({ _id: req.params.id, tenantId: req.tenantId })
+      .populate(populateFields(req.tenantId));
     if (!bed) {
       return res.status(404).json({ success: false, message: "Bed not found" });
     }
@@ -127,8 +128,8 @@ export const updateBed = async (req, res) => {
     if (req.body.wardName) updates.wardName = req.body.wardName;
     if (req.body.bedNumber) updates.bedNumber = req.body.bedNumber;
 
-    const updatedBed = await Bed.findByIdAndUpdate(
-      req.params.id,
+    const updatedBed = await Bed.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.user.tenantId },
       { $set: updates },
       { new: true, runValidators: true }
     );
@@ -168,7 +169,7 @@ export const assignPatientToBed = async (req, res) => {
   }
 
   try {
-    const bed = await Bed.findById(bedId);
+    const bed = await Bed.findOne({ _id: bedId, tenantId: req.user.tenantId });
     if (!bed) {
       return res.status(404).json({ success: false, message: "Bed not found" });
     }
@@ -176,7 +177,7 @@ export const assignPatientToBed = async (req, res) => {
       return res.status(409).json({ success: false, message: "Bed is already occupied" });
     }
 
-    const patient = await Patient.findOne({ _id: patientId, isActive: true });
+    const patient = await Patient.findOne({ _id: patientId, tenantId: req.user.tenantId });
     if (!patient) {
       return res.status(404).json({ success: false, message: "Patient not found or is inactive" });
     }
@@ -185,7 +186,7 @@ export const assignPatientToBed = async (req, res) => {
     bed.currentPatient = patientId;
     await bed.save();
 
-    const populatedBed = await bed.populate(populateFields);
+    const populatedBed = await bed.populate(populateFields(req.tenantId));
 
     res.status(200).json({
       success: true,
@@ -211,7 +212,7 @@ export const releaseBed = async (req, res) => {
   }
 
   try {
-    const bed = await Bed.findById(bedId);
+    const bed = await Bed.findOne({ _id: bedId, tenantId: req.user.tenantId });
     if (!bed) {
       return res.status(404).json({ success: false, message: "Bed not found" });
     }

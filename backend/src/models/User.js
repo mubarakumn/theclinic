@@ -60,6 +60,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    invitationStatus: {
+      type: String,
+      enum: ["PENDING", "ACCEPTED"],
+      default: "ACCEPTED",
+    },
+    invitationTokenHash: {
+      type: String,
+      select: false,
+    },
+    invitationExpiresAt: {
+      type: Date,
+      select: false,
+    },
   },
   { timestamps: true }
 );

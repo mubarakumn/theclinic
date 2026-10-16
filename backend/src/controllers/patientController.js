@@ -10,7 +10,8 @@ export const getPatients = async (req, res) => {
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
-        { mrn: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { patientId: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
       ];
     }
@@ -27,10 +28,16 @@ export const registerPatient = async (req, res) => {
     const seq = await getNextSequence(req.user.tenantId, 'PATIENT');
     const mrn = `MRN-${new Date().getFullYear()}-${seq.toString().padStart(4, '0')}`;
 
+    const { firstName, lastName, gender, dateOfBirth, phone, address } = req.body;
     const patient = await Patient.create({
-      ...req.body,
       tenantId: req.user.tenantId,
       patientId: mrn,
+      firstName,
+      lastName,
+      gender,
+      dateOfBirth,
+      phone,
+      address,
     });
 
     res.status(201).json({ success: true, data: patient });
@@ -52,9 +59,14 @@ export const getPatientById = async (req, res) => {
 
 export const updatePatient = async (req, res) => {
   try {
+    const updates = {};
+    for (const field of ['firstName', 'lastName', 'gender', 'dateOfBirth', 'phone', 'address']) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+
     const patient = await Patient.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.user.tenantId },
-      req.body,
+      { $set: updates },
       { new: true, runValidators: true }
     );
 

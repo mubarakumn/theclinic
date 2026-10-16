@@ -1,176 +1,221 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import API from '../../api';
+
+const departments = ['Consultation', 'Laboratory', 'Pharmacy', 'Admissions', 'Radiology', 'Registration'];
+const paymentMethods = ['POS', 'Bank Transfer', 'Cash'];
 
 const Billing = () => {
-  const [selectedPatient, setSelectedPatient] = useState({
-    cardNo: 'MED-2026-0042',
-    name: 'Fatima Abubakar',
-    visitType: 'ANC Checkup',
-  });
+  const [invoices, setInvoices] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [patientId, setPatientId] = useState('');
+  const [department, setDepartment] = useState('Consultation');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('POS');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [pendingItems, setPendingItems] = useState([
-    { id: 'ITEM-1', department: 'Consultation', description: 'ANC Specialist Consultation Fee', amount: 5000, selected: true },
-    { id: 'ITEM-2', font: 'Lab', department: 'Laboratory', description: 'Urinalysis Test', amount: 2500, selected: true },
-    { id: 'ITEM-3', department: 'Pharmacy', description: 'Prenatal Vitamins (30 Tabs)', amount: 4500, selected: true },
-    { id: 'ITEM-4', department: 'Admissions', description: 'Bed Charge - Female Ward (1 Night)', amount: 8000, selected: false },
-  ]);
+  const fetchBillingData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const [invoiceResponse, patientResponse] = await Promise.all([
+        API.get('/invoices'),
+        API.get('/patients'),
+      ]);
+      setInvoices(invoiceResponse.data.data || []);
+      setPatients(patientResponse.data.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load billing data.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [discount, setDiscount] = useState(0);
-  const [paymentMode, setPaymentMode] = useState('POS');
-  const [isPaid, setIsPaid] = useState(false);
+  useEffect(() => {
+    fetchBillingData();
+  }, [fetchBillingData]);
 
-  const toggleItemSelection = (id) => {
-    setPendingItems(
-      pendingItems.map((item) =>
-        item.id === id ? { ...item, selected: !item.selected } : item
-      )
-    );
-  };
-
-  const subtotal = pendingItems
-    .filter((i) => i.selected)
-    .reduce((acc, item) => acc + item.amount, 0);
-
-  const totalPayable = Math.max(0, subtotal - Number(discount));
-
-  const handleProcessPayment = (e) => {
-    e.preventDefault();
-    if (totalPayable <= 0 && subtotal > 0) {
-      alert('Payment amount must be greater than zero.');
+  const createInvoice = async (event) => {
+    event.preventDefault();
+    const numericAmount = Number(amount);
+    if (!patientId || !description.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError('Select a patient and enter an item description and positive amount.');
       return;
     }
-    setIsPaid(true);
+
+    try {
+      setSaving(true);
+      setError('');
+      setMessage('');
+      const { data } = await API.post('/invoices', {
+        patientId,
+        items: [{ department, description: description.trim(), amount: numericAmount }],
+      });
+      setInvoices((current) => [data.data, ...current]);
+      setDescription('');
+      setAmount('');
+      setMessage('Invoice created.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create invoice.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handlePrintReceipt = () => {
-    window.print();
+  const processPayment = async (invoice) => {
+    try {
+      setSaving(true);
+      setError('');
+      setMessage('');
+      const { data } = await API.post(`/invoices/${invoice._id}/payments`, {
+        paymentMethod,
+      });
+      setInvoices((current) => current.map((item) => item._id === invoice._id ? data.data : item));
+      setMessage(`Payment recorded for ${invoice.invoiceNo}.`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record payment.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const formatMoney = (value) => `₦${Number(value || 0).toLocaleString()}`;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cashier Terminal & Auto-Billing</h1>
-          <p className="text-sm text-gray-500">Aggregate pending clinical charges, process payments, and issue receipts.</p>
-        </div>
-        {isPaid && (
-          <button
-            onClick={handlePrintReceipt}
-            className="bg-gray-800 text-white font-bold text-xs px-4 py-2 rounded-lg hover:bg-black transition shadow"
-          >
-            🖨️ Print Receipt
-          </button>
-        )}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Billing & Payments</h1>
+        <p className="text-sm text-gray-500">Create patient invoices and record payments against outstanding invoices.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Line Items Aggregation */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white border rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <span className="text-xs font-mono font-bold text-blue-600 uppercase">{selectedPatient.cardNo}</span>
-                <h2 className="text-lg font-bold text-gray-900">{selectedPatient.name}</h2>
-              </div>
-              <span className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-bold">
-                {selectedPatient.visitType}
-              </span>
-            </div>
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{message}</p>}
 
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Unbilled Pending Charges</p>
-
-            <div className="divide-y border rounded-lg overflow-hidden">
-              {pendingItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => !isPaid && toggleItemSelection(item.id)}
-                  className={`p-3.5 flex justify-between items-center cursor-pointer transition ${
-                    item.selected ? 'bg-blue-50/60' : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={item.selected}
-                      disabled={isPaid}
-                      onChange={() => {}}
-                      className="h-4 w-4 text-blue-600 rounded border-gray-300"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">{item.description}</p>
-                      <span className="text-[10px] uppercase font-bold text-gray-400">{item.department}</span>
-                    </div>
-                  </div>
-                  <span className="font-mono font-bold text-sm text-gray-900">
-                    ₦{item.amount.toLocaleString()}
-                  </span>
-                </div>
+      <form onSubmit={createInvoice} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+        <h2 className="border-b pb-2 font-bold text-gray-900">Create Invoice</h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <label className="text-xs font-bold text-gray-600">
+            Patient
+            <select
+              required
+              value={patientId}
+              onChange={(event) => setPatientId(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+            >
+              <option value="">Select patient</option>
+              {patients.map((patient) => (
+                <option key={patient._id} value={patient._id}>
+                  {patient.firstName} {patient.lastName} — {patient.patientId || patient.mrn}
+                </option>
               ))}
-            </div>
+            </select>
+          </label>
+          <label className="text-xs font-bold text-gray-600">
+            Department
+            <select
+              value={department}
+              onChange={(event) => setDepartment(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+            >
+              {departments.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-gray-600">
+            Charge description
+            <input
+              required
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+            />
+          </label>
+          <div className="flex items-end gap-2">
+            <label className="flex-1 text-xs font-bold text-gray-600">
+              Amount (₦)
+              <input
+                required
+                min="0.01"
+                type="number"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={saving || patients.length === 0}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Create'}
+            </button>
           </div>
         </div>
+        {!loading && patients.length === 0 && (
+          <p className="text-xs text-gray-500">Register a patient before creating an invoice.</p>
+        )}
+      </form>
 
-        {/* Right Column: Checkout Summary */}
-        <div className="space-y-4">
-          <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-            <h3 className="font-bold text-base text-gray-900 border-b pb-2">Payment Summary</h3>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span className="font-mono font-bold text-gray-900">₦{subtotal.toLocaleString()}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-gray-600">
-                <span>Discount (₦)</span>
-                <input
-                  type="number"
-                  disabled={isPaid}
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  className="w-24 border rounded p-1 text-right font-mono text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="border-t pt-2 flex justify-between items-center font-bold text-base text-gray-900">
-                <span>Total Payable</span>
-                <span className="font-mono text-lg text-blue-600">₦{totalPayable.toLocaleString()}</span>
-              </div>
-            </div>
-
-            {!isPaid ? (
-              <form onSubmit={handleProcessPayment} className="space-y-4 pt-2 border-t">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Payment Method</label>
-                  <select
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value)}
-                    className="w-full border rounded-lg p-2 text-sm font-semibold text-gray-800 outline-none"
-                  >
-                    <option value="POS">POS Terminal</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={subtotal === 0}
-                  className="w-full bg-green-600 text-white font-bold text-sm py-3 rounded-xl shadow-lg hover:bg-green-700 disabled:opacity-50 transition"
-                >
-                  Confirm & Post Payment
-                </button>
-              </form>
-            ) : (
-              <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-xl text-center space-y-1">
-                <p className="font-bold text-sm">✓ Payment Successful</p>
-                <p className="text-xs">Mode: {paymentMode}</p>
-                <p className="text-[10px] font-mono text-green-600">TXN-REF: {Math.floor(100000 + Math.random() * 900000)}</p>
-              </div>
-            )}
-          </div>
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-bold text-gray-900">Invoices</h2>
+          <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
+            Payment method
+            <select
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              className="rounded-lg border p-2 text-sm font-normal"
+            >
+              {paymentMethods.map((method) => <option key={method}>{method}</option>)}
+            </select>
+          </label>
         </div>
-      </div>
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading invoices...</p>
+        ) : invoices.length === 0 ? (
+          <p className="rounded-lg border bg-white p-5 text-sm text-gray-500">No invoices found.</p>
+        ) : (
+          <div className="space-y-3">
+            {invoices.map((invoice) => {
+              const patient = invoice.patientId;
+              const isUnpaid = invoice.status === 'UNPAID';
+              return (
+                <article key={invoice._id} className="flex flex-col gap-3 rounded-xl border bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-mono text-xs font-bold text-blue-700">{invoice.invoiceNo}</p>
+                    <p className="font-bold text-gray-900">
+                      {[patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || 'Patient unavailable'}
+                    </p>
+                    <ul className="mt-1 text-sm text-gray-600">
+                      {invoice.items?.map((item, index) => (
+                        <li key={`${invoice._id}-${index}`}>{item.description} · {item.department}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {invoice.status} · {invoice.paymentMode || 'Payment pending'}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 md:justify-end">
+                    <span className="font-mono text-lg font-bold text-gray-900">{formatMoney(invoice.totalAmount)}</span>
+                    {isUnpaid && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => processPayment(invoice)}
+                        className="rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Mark paid
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

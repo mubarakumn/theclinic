@@ -1,4 +1,3 @@
-import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 // Public Marketing & Onboarding Pages
@@ -6,6 +5,7 @@ import LandingPage from "../pages/Public/LandingPage.jsx";
 import Features from "../pages/Public/Features.jsx";
 import Pricing from "../pages/Public/Pricing.jsx";
 import RegisterClinic from "../pages/Public/RegisterClinic.jsx";
+import AcceptInvitation from "../pages/Public/AcceptInvitation.jsx";
 import Login from "../auth/login.jsx";
 import SubscriptionExpired from "../pages/Subscription/SubscriptionExpired.jsx";
 import Unauthorized from "../pages/Unauthorized/Unauthorized.jsx";
@@ -46,6 +46,7 @@ export const AppRoutes = () => {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<RegisterClinic />} />
+      <Route path="/accept-invitation" element={<AcceptInvitation />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
       <Route path="/subscription-expired" element={<SubscriptionExpired />} />
 

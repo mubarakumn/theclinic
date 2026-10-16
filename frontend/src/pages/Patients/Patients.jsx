@@ -1,4 +1,4 @@
-﻿﻿import { useState, useEffect } from 'react';
+﻿﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../api';
 import NewEncounterModal from './NewEncounterModal';
@@ -10,17 +10,14 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [selectedPatientForCheckIn, setSelectedPatientForCheckIn] = useState(null);
+  const searchTermRef = useRef('');
 
-  useEffect(() => {
-    fetchPatients();
-  }, [typeFilter]);
-
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     try {
       setLoading(true);
       let url = '/patients';
       const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
+      if (searchTermRef.current) params.append('search', searchTermRef.current);
       if (typeFilter !== 'All') params.append('status', typeFilter);
       
       const { data } = await API.get(`${url}?${params.toString()}`);
@@ -32,6 +29,18 @@ const Patients = () => {
     } finally {
       setLoading(false);
     }
+  }, [typeFilter]);
+
+  useEffect(() => {
+    const initialFetch = window.setTimeout(() => {
+      void fetchPatients();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
+  }, [fetchPatients]);
+
+  const handleSearchTermChange = (value) => {
+    searchTermRef.current = value;
+    setSearchTerm(value);
   };
 
   const handleSearchSubmit = (e) => {
@@ -51,6 +60,7 @@ const Patients = () => {
       fetchPatients();
     } catch (err) {
       console.error('Failed to create encounter', err);
+      alert(err.response?.data?.message || 'Failed to create encounter.');
     }
   };
 
@@ -76,7 +86,7 @@ const Patients = () => {
             type="text"
             placeholder="Search by Name, MRN / Card No, or Phone..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchTermChange(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-900"
           />
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>

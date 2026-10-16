@@ -31,6 +31,6 @@ const bedSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-bedSchema.index({ wardName: 1, bedNumber: 1 }, { unique: true });
+bedSchema.index({ tenantId: 1, wardName: 1, bedNumber: 1 }, { unique: true });
 
 export default mongoose.model("Bed", bedSchema);

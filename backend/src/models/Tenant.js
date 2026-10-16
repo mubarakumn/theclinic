@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { PERMISSIONS } from '../config/permissions.js';
 
 const tenantSchema = new mongoose.Schema(
   {
@@ -33,6 +34,23 @@ const tenantSchema = new mongoose.Schema(
       maxPatients: { type: Number, default: 500 },
       maxBeds: { type: Number, default: 20 },
     },
+
+    rolePermissions: [
+      {
+        name: {
+          type: String,
+          required: true,
+          uppercase: true,
+          trim: true,
+        },
+        permissions: [
+          {
+            type: String,
+            enum: PERMISSIONS,
+          },
+        ],
+      },
+    ],
 
     // Payment / Invoice History for the SaaS Platform
     paymentHistory: [

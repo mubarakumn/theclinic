@@ -98,7 +98,7 @@ export default function AuditLogs() {
             ) : logs?.length === 0 ? (
               <tr><td colSpan="4" className="text-center py-8 text-gray-500">No audit logs found for the selected filters.</td></tr>
             ) : (
-              logs.map((log) => (
+              logs?.map((log) => (
                 <tr key={log._id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{log.actorName || "System"}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{log.action}</span></td>
@@ -112,7 +112,7 @@ export default function AuditLogs() {
       </div>
 
       {/* Pagination */}
-      {pagination.total > 0 && (
+      {pagination?.total > 0 && (
         <div className="flex justify-between items-center mt-4">
           <span className="text-sm text-gray-700">
             Page {pagination.page} of {pagination.pages} (Total: {pagination.total} logs)

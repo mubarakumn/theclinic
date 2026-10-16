@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../api';
 
 const PatientForm = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [queuedOffline, setQueuedOffline] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -32,7 +33,11 @@ const PatientForm = () => {
       }
     } catch (err) {
       console.error('Error registering patient:', err);
-      alert('Registration failed. Please check required fields.');
+      if (err.code === 'OFFLINE_QUEUED') {
+        setQueuedOffline(true);
+      } else {
+        alert(err.response?.data?.message || 'Registration failed. Please check required fields.');
+      }
     } finally {
       setLoading(false);
     }
@@ -137,10 +142,14 @@ const PatientForm = () => {
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || queuedOffline}
             className="px-6 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition"
           >
-            {loading ? 'Generating MRN Card...' : 'Complete & Print Card'}
+            {loading
+              ? 'Generating MRN Card...'
+              : queuedOffline
+                ? 'Saved locally — awaiting sync'
+                : 'Complete & Print Card'}
           </button>
         </div>
       </form>

@@ -2,6 +2,7 @@ import express from 'express';
 import {
   registerTenant,
   login,
+  acceptStaffInvitation,
   getMe,
   updateProfile,
   updatePassword,
@@ -13,6 +14,7 @@ const router = express.Router();
 // Public Routes
 router.post('/register', registerTenant);
 router.post('/login', login);
+router.post('/accept-invitation', acceptStaffInvitation);
 
 // Protected Self-Management Routes
 router.use(protect);
