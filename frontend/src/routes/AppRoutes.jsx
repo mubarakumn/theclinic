@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 // Public Marketing & Onboarding Pages
 import LandingPage from "../pages/Public/LandingPage.jsx";
@@ -9,6 +9,7 @@ import AcceptInvitation from "../pages/Public/AcceptInvitation.jsx";
 import Login from "../auth/login.jsx";
 import SubscriptionExpired from "../pages/Subscription/SubscriptionExpired.jsx";
 import Unauthorized from "../pages/Unauthorized/Unauthorized.jsx";
+import NotFound from "../pages/NotFound/NotFound.jsx";
 
 // Protected Layout & Guard
 import ProtectedRoute from "../layouts/ProtectedRoute.jsx";
@@ -167,10 +168,11 @@ export const AppRoutes = () => {
             <Route path="/audit-logs" element={<AuditLogs />} />
           </Route>
 
-          {/* Unmapped app fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Route>
+
+      {/* Keep unknown URLs out of the protected app shell. */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

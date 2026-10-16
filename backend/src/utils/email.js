@@ -7,6 +7,9 @@ const getTransporter = () => {
   if (!config.SMTP_HOST || !config.SMTP_USER || !config.SMTP_PASS || !config.EMAIL_FROM) {
     throw new Error("SMTP email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM.");
   }
+  if (!Number.isInteger(config.SMTP_PORT) || config.SMTP_PORT < 1 || config.SMTP_PORT > 65535) {
+    throw new Error("SMTP_PORT must be an integer between 1 and 65535.");
+  }
   if (!transporter) {
     transporter = nodemailer.createTransport({
       host: config.SMTP_HOST,
@@ -16,6 +19,10 @@ const getTransporter = () => {
     });
   }
   return transporter;
+};
+
+export const verifyEmailTransport = async () => {
+  await getTransporter().verify();
 };
 
 export const sendStaffInvitation = async ({ email, firstName, clinicName, clinicCode, invitationUrl }) => {

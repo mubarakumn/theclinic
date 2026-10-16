@@ -11,9 +11,19 @@ The frontend reads its API URL from `frontend/.env` as
 copy `frontend/.env.example` to `frontend/.env`. For production, configure
 both the frontend API URL and backend `CLIENT_URL` to the deployed origins.
 
-Staff invitations require SMTP settings in the backend environment. Provide
-the SMTP values from your mail provider. Use port `587` with
-`SMTP_SECURE=false` or port `465` with `SMTP_SECURE=true`.
+Staff invitations require SMTP settings in `backend/.env`. Get the SMTP host,
+port, username, and password from your email provider's SMTP settings page.
+Set `EMAIL_FROM` to a sender address that the provider allows you to use.
+Use port `587` with `SMTP_SECURE=false` or port `465` with
+`SMTP_SECURE=true`.
+
+For Gmail, use `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+`SMTP_SECURE=false`, and your full Gmail address as `SMTP_USER`. `SMTP_PASS`
+must be a Google App Password, not your normal Google password. App Passwords
+require 2-Step Verification and may be unavailable for some managed accounts.
+Use the same Gmail address in `EMAIL_FROM`. For production, prefer a
+transactional email provider and follow its SMTP setup; verify your sending
+domain and its SPF/DKIM records before sending invitations to clinic staff.
 
 When an administrator adds a staff member, the invitation is sent to that
 member's email address. Invitation links expire after 48 hours and can be
