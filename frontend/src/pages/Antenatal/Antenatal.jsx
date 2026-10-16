@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const emptyVisit = { fundalHeightCm: '', fetalHeartRate: '', bloodPressure: '', weightKg: '', notes: '' };
@@ -24,7 +25,10 @@ const Antenatal = () => {
   }, []);
 
   useEffect(() => {
-    fetchRecords();
+    const initialFetch = window.setTimeout(() => {
+      void fetchRecords();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchRecords]);
 
   const saveVisit = async (record) => {
@@ -88,10 +92,17 @@ const Antenatal = () => {
                     <tbody>
                       <tr>
                         <td className="p-4 font-mono font-bold text-purple-800">
-                          {record.ancNumber} <span className="text-gray-400">/ {patient?.mrn || patient?.patientId || '—'}</span>
+                          {record.ancNumber} <span className="text-gray-400">/ {patient?.patientId || '—'}</span>
                         </td>
                         <td className="p-4 font-bold text-gray-900">
-                          {[patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || 'Patient unavailable'}
+                          {patient?._id ? (
+                            <Link
+                              to={`/patients/${encodeURIComponent(patient.patientId)}`}
+                              className="inline-flex min-h-11 items-center text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            >
+                              {[patient.firstName, patient.lastName].filter(Boolean).join(' ')}
+                            </Link>
+                          ) : 'Patient unavailable'}
                         </td>
                         <td className="p-4 font-semibold text-gray-600">G{record.gravida} P{record.para}</td>
                         <td className="p-4">

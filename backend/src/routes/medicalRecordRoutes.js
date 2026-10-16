@@ -18,7 +18,7 @@ router.route('/patient/:patientId')
   .get(getPatientHistory);
 
 router.route('/encounter')
-  .post(authorize('DOCTOR', 'NURSE', 'ADMIN'), createEncounter);
+  .post(authorize('DOCTOR', 'NURSE', 'ADMIN', 'SUPER_ADMIN'), createEncounter);
 
 router.route('/:id/diagnosis')
   .patch(authorize('DOCTOR'), addDiagnosis);

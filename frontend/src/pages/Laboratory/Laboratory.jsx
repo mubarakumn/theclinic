@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const Laboratory = () => {
@@ -22,7 +23,10 @@ const Laboratory = () => {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
+    const initialFetch = window.setTimeout(() => {
+      void fetchOrders();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchOrders]);
 
   const saveResult = async (order) => {
@@ -66,14 +70,22 @@ const Laboratory = () => {
             return (
               <div key={order._id} className="bg-white border rounded-xl p-5 shadow-sm space-y-3">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <div>
-                    <span className="font-mono font-bold text-blue-700 text-xs mr-2">
-                      {patient?.mrn || patient?.patientId || 'No MRN'}
-                    </span>
-                    <strong className="text-gray-900 text-sm">
-                      {[patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || 'Patient unavailable'}
-                    </strong>
-                  </div>
+                  {patient?._id ? (
+                    <Link
+                      to={`/patients/${encodeURIComponent(patient.patientId)}`}
+                      className="min-h-11 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <span className="block font-mono text-xs font-bold text-blue-700">
+                        {patient.patientId}
+                      </span>
+                      <strong className="text-sm text-gray-900">
+                        {[patient.firstName, patient.lastName].filter(Boolean).join(' ')}
+                      </strong>
+                      <span className="ml-2 text-xs font-semibold text-purple-700">View patient</span>
+                    </Link>
+                  ) : (
+                    <strong className="text-sm text-gray-900">Patient unavailable</strong>
+                  )}
                   <span className={`text-xs px-2.5 py-1 rounded font-bold ${
                     completed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
                   }`}>

@@ -2,19 +2,25 @@
 import { useNavigate } from 'react-router-dom';
 import API from '../../api';
 import NewEncounterModal from './NewEncounterModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Patients = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [selectedPatientForCheckIn, setSelectedPatientForCheckIn] = useState(null);
   const searchTermRef = useRef('');
+  const canCreateEncounter = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE']
+    .includes(user?.role?.toUpperCase());
 
   const fetchPatients = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       let url = '/patients';
       const params = new URLSearchParams();
       if (searchTermRef.current) params.append('search', searchTermRef.current);
@@ -26,6 +32,7 @@ const Patients = () => {
       }
     } catch (err) {
       console.error('Failed to fetch patients:', err);
+      setError(err.response?.data?.message || 'Could not load patients. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -55,12 +62,17 @@ const Patients = () => {
 
   const handleCreateEncounter = async (encounterData) => {
     try {
-      await API.post(`/patients/${encounterData.patientId}/encounters`, encounterData);
-      alert('Encounter successfully checked in!');
+      await API.post('/medical-records/encounter', {
+        patientId: encounterData.patientId,
+        chiefComplaint: encounterData.chiefComplaint,
+      });
       fetchPatients();
     } catch (err) {
       console.error('Failed to create encounter', err);
-      alert(err.response?.data?.message || 'Failed to create encounter.');
+      throw new Error(
+        err.response?.data?.message || 'Failed to create encounter.',
+        { cause: err },
+      );
     }
   };
 
@@ -71,23 +83,25 @@ const Patients = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">Patient Directory</h1>
           <p className="text-xs md:text-sm text-gray-500">Search patients, copy physical card numbers, or open visit encounters.</p>
         </div>
-        <button
+        {['SUPER_ADMIN', 'ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE', 'LAB_TECH', 'PHARMACIST', 'ACCOUNTANT']
+          .includes(user?.role?.toUpperCase()) && <button
           onClick={() => navigate('/patients/new')}
-          className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
+          className="min-h-11 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition"
         >
           + Register New Patient
-        </button>
+        </button>}
       </div>
 
       {/* Filter & Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="bg-white p-4 rounded-xl border shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+      <form onSubmit={handleSearchSubmit} className="bg-white p-4 rounded-xl border shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
         <div className="relative w-full md:w-1/2">
           <input
             type="text"
-            placeholder="Search by Name, MRN / Card No, or Phone..."
+            placeholder="Search by name, tracking number, physical card number, or phone..."
             value={searchTerm}
             onChange={(e) => handleSearchTermChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-slate-900"
+            aria-label="Search patients by name, medical record number, or phone"
+            className="min-h-11 w-full pl-10 pr-4 py-2 border rounded-lg text-base md:text-sm outline-none focus:ring-2 focus:ring-slate-900"
           />
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
         </div>
@@ -110,12 +124,58 @@ const Patients = () => {
         </div>
       </form>
 
+      {error && (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:flex-row sm:items-center sm:justify-between">
+          <span>{error}</span>
+          <button type="button" onClick={fetchPatients} className="min-h-11 self-start rounded-lg border border-red-300 px-4 font-semibold hover:bg-red-100">
+            Try again
+          </button>
+        </div>
+      )}
+
+      <div className="divide-y overflow-hidden rounded-xl border bg-white shadow-sm md:hidden">
+        {loading && <p className="p-6 text-center text-sm text-gray-500">Loading patient records…</p>}
+        {!loading && patients.map((patient) => (
+          <article key={patient._id} className="space-y-3 p-4">
+            <button
+              type="button"
+              onClick={() => navigate(`/patients/${encodeURIComponent(patient.patientId)}`)}
+              className="block min-h-11 w-full text-left"
+            >
+              <span className="block font-mono text-xs font-bold text-slate-700">Tracking no.: {patient.patientId}</span>
+              <span className="mt-1 block font-semibold text-gray-900">{patient.firstName} {patient.lastName}</span>
+              <span className="mt-1 block text-sm text-gray-600">{patient.phone || 'No phone number'}</span>
+              {patient.physicalCardNumber && (
+                <span className="mt-1 block text-xs text-gray-500">Physical card: {patient.physicalCardNumber}</span>
+              )}
+            </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                {patient.status || 'REGISTERED'}
+              </span>
+              {canCreateEncounter && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPatientForCheckIn(patient)}
+                  className="min-h-11 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  + Check in
+                </button>
+              )}
+            </div>
+          </article>
+        ))}
+        {!loading && patients.length === 0 && (
+          <p className="p-6 text-center text-sm text-gray-500">No matching patient records found.</p>
+        )}
+      </div>
+
       {/* Patients Table */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="hidden overflow-x-auto rounded-xl border bg-white shadow-sm md:block">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-gray-50 border-b text-xs font-bold text-gray-500 uppercase">
             <tr>
-              <th className="p-4">Card / MRN No</th>
+              <th className="p-4">Clinic Tracking No.</th>
               <th className="p-4">Patient Name</th>
               <th className="p-4">Contact</th>
               <th className="p-4">Registered Date</th>
@@ -127,10 +187,15 @@ const Patients = () => {
             {!loading && patients.map((patient) => (
               <tr
                 key={patient._id}
-                onClick={() => navigate(`/patients/${patient.patientId}`)}
+                onClick={() => navigate(`/patients/${encodeURIComponent(patient.patientId)}`)}
                 className="hover:bg-slate-50 cursor-pointer transition"
               >
-                <td className="p-4 font-mono font-bold text-slate-900">{patient.patientId || patient.cardNo}</td>
+                <td className="p-4">
+                  <p className="font-mono font-bold text-slate-900">{patient.patientId}</p>
+                  {patient.physicalCardNumber && (
+                    <p className="mt-1 text-xs text-gray-500">Physical card: {patient.physicalCardNumber}</p>
+                  )}
+                </td>
                 <td className="p-4">
                   <p className="font-bold text-gray-900">{patient.firstName} {patient.lastName}</p>
                   <p className="text-xs text-gray-500 capitalize">{patient.gender}</p>
@@ -145,12 +210,12 @@ const Patients = () => {
                   </span>
                 </td>
                 <td className="p-4 text-center">
-                  <button
+                  {canCreateEncounter && <button
                     onClick={(e) => handleOpenCheckIn(e, patient)}
-                    className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition"
+                    className="min-h-11 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition"
                   >
                     + Check-In Visit
-                  </button>
+                  </button>}
                 </td>
               </tr>
             ))}

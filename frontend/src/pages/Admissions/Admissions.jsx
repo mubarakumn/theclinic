@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const Admissions = () => {
@@ -21,7 +22,10 @@ const Admissions = () => {
   }, []);
 
   useEffect(() => {
-    fetchBeds();
+    const initialFetch = window.setTimeout(() => {
+      void fetchBeds();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchBeds]);
 
   const releaseBed = async (bed) => {
@@ -73,10 +77,19 @@ const Admissions = () => {
                   <>
                     <div>
                       <p className="text-xs font-bold uppercase text-gray-400">Current patient</p>
-                      <p className="mt-0.5 text-sm font-semibold text-gray-800">
-                        {patientName || 'Patient information unavailable'}
-                      </p>
-                      {patient?.patientId && <p className="font-mono text-xs text-gray-500">{patient.patientId}</p>}
+                      {patient?._id ? (
+                        <Link
+                          to={`/patients/${encodeURIComponent(patient.patientId)}`}
+                          className="mt-0.5 inline-flex min-h-11 flex-col justify-center text-left text-sm font-semibold text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <span>{patientName || 'View patient record'}</span>
+                          <span className="font-mono text-xs font-normal text-gray-500">{patient.patientId}</span>
+                        </Link>
+                      ) : (
+                        <p className="mt-0.5 text-sm font-semibold text-gray-800">
+                          Patient information unavailable
+                        </p>
+                      )}
                     </div>
                     <div className="flex justify-end">
                       <button

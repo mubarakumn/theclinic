@@ -1,9 +1,7 @@
-import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   FileText,
   HeartPulse,
   FlaskConical,
@@ -24,7 +22,7 @@ const navigationConfig = [
   {
     title: "PATIENT CARE",
     group: true,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST, ROLES.DOCTOR, ROLES.NURSE],
+    allowedRoles: ALL_ROLES,
     children: [
       { title: "Patients", path: "/patients", icon: <Users size={20} />, allowedRoles: ALL_ROLES },
       { title: "Medical Records", path: "/medical-records", icon: <FileText size={20} />, allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.DOCTOR, ROLES.NURSE] },

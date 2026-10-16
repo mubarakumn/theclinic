@@ -56,10 +56,21 @@ export const AppRoutes = () => {
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* Patient Management */}
+          {/* Patient directory and patient record are visible to all clinic staff;
+            write-capable registration routes keep their existing role boundary. */}
           <Route
             element={
-              <ProtectedRoute
+            <ProtectedRoute allowedRoles={ALL_ROLES} />
+            }
+          >
+            <Route path="/patients" element={<Patients />} />
+            <Route path="/patients/:id" element={<PatientDetail />} />
+          </Route>
+
+          {/* Patient management */}
+          <Route
+            element={
+            <ProtectedRoute
                 allowedRoles={[
                   ROLES.SUPER_ADMIN,
                   ROLES.ADMIN,
@@ -70,11 +81,9 @@ export const AppRoutes = () => {
                   ROLES.PHARMACIST,
                   ROLES.ACCOUNTANT,
                 ]}
-              />
+            />
             }
           >
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/patients/:id" element={<PatientDetail />} />
             <Route path="/patients/new" element={<PatientForm />} />
             <Route path="/patients/:id/edit" element={<PatientForm />} />
           </Route>

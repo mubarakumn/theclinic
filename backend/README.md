@@ -30,6 +30,16 @@ member's email address. Invitation links expire after 48 hours and can be
 resent from Staff Management. The staff member chooses their own password,
 then enters the clinic workspace under the tenant that issued the invitation.
 
+## Patient identification
+
+Each patient receives a clinic tracking number when their registration is
+saved by the backend. This is the app's patient identifier and can be written
+on a clinic's existing physical card; the system does not issue or generate a
+physical card number. An existing physical card number is optional and may be
+linked during registration or later from the patient profile by an
+administrator or receptionist. Physical card numbers must be unique within a
+clinic.
+
 ## Offline work and synchronization
 
 Offline support is intentionally limited to restoring the session of a user

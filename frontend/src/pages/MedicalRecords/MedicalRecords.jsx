@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const emptyVitals = { bloodPressure: '', pulseRate: '', temperature: '', weight: '' };
@@ -217,7 +218,18 @@ const MedicalRecords = () => {
               <div>
                 <p className="font-bold text-gray-900">{patientName(record.patientId)}</p>
                 <p className="text-xs text-gray-500">
-                  {record.patientId?.patientId || '—'} · {formatDate(record.createdAt)}
+                  {record.patientId?._id ? (
+                    <>
+                      <Link
+                        to={`/patients/${encodeURIComponent(record.patientId.patientId)}`}
+                        className="font-semibold text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {record.patientId.patientId}
+                      </Link>
+                      {' · '}
+                    </>
+                  ) : null}
+                  {formatDate(record.createdAt)}
                 </p>
               </div>
               <span className="rounded bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">{record.status}</span>

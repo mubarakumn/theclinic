@@ -9,6 +9,7 @@ const patientSchema = new mongoose.Schema(
       index: true
     },
     patientId: { type: String, required: true },
+    physicalCardNumber: { type: String, trim: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     gender: { type: String, required: true },
@@ -21,6 +22,13 @@ const patientSchema = new mongoose.Schema(
 
 // Compound index to ensure uniqueness of patientId PER tenant
 patientSchema.index({ tenantId: 1, patientId: 1 }, { unique: true });
+patientSchema.index(
+  { tenantId: 1, physicalCardNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { physicalCardNumber: { $type: 'string' } },
+  },
+);
 
 const Patient = mongoose.model('Patient', patientSchema);
 

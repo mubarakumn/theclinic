@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const departments = ['Consultation', 'Laboratory', 'Pharmacy', 'Admissions', 'Radiology', 'Registration'];
@@ -35,7 +36,10 @@ const Billing = () => {
   }, []);
 
   useEffect(() => {
-    fetchBillingData();
+    const initialFetch = window.setTimeout(() => {
+      void fetchBillingData();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchBillingData]);
 
   const createInvoice = async (event) => {
@@ -108,7 +112,7 @@ const Billing = () => {
               <option value="">Select patient</option>
               {patients.map((patient) => (
                 <option key={patient._id} value={patient._id}>
-                  {patient.firstName} {patient.lastName} — {patient.patientId || patient.mrn}
+                  {patient.firstName} {patient.lastName} — {patient.patientId}
                 </option>
               ))}
             </select>
@@ -186,7 +190,14 @@ const Billing = () => {
                   <div>
                     <p className="font-mono text-xs font-bold text-blue-700">{invoice.invoiceNo}</p>
                     <p className="font-bold text-gray-900">
-                      {[patient?.firstName, patient?.lastName].filter(Boolean).join(' ') || 'Patient unavailable'}
+                      {patient?._id ? (
+                        <Link
+                          to={`/patients/${encodeURIComponent(patient.patientId)}`}
+                          className="inline-flex min-h-11 items-center text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {[patient.firstName, patient.lastName].filter(Boolean).join(' ')}
+                        </Link>
+                      ) : 'Patient unavailable'}
                     </p>
                     <ul className="mt-1 text-sm text-gray-600">
                       {invoice.items?.map((item, index) => (

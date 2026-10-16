@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const NewEncounterModal = ({ isOpen, onClose, patient, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    visitType: 'General Outpatient',
-    doctor: '',
-    chiefComplaint: '',
-    priority: 'Routine',
-  });
+  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen || !patient) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit({
-      patientId: patient._id || patient.id,
-      ...formData,
-      checkInTime: new Date().toISOString(),
-    });
-    onClose();
+    setSaving(true);
+    setError('');
+    try {
+      await onSubmit({ patientId: patient._id, chiefComplaint: chiefComplaint.trim() });
+      setChiefComplaint('');
+      onClose();
+    } catch (submitError) {
+      setError(submitError.message || 'Could not save the encounter. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -27,51 +29,45 @@ const NewEncounterModal = ({ isOpen, onClose, patient, onSubmit }) => {
           <div>
             <h3 className="font-bold text-base">Check-In / New Visit Encounter</h3>
             <p className="text-xs text-slate-300">
-              {patient.firstName} {patient.lastName} ({patient.mrn || patient.cardNo})
+              {patient.firstName} {patient.lastName} ({patient.patientId})
             </p>
           </div>
-          <button onClick={onClose} className="text-white hover:text-gray-300 text-lg">✕</button>
+          <button type="button" onClick={onClose} aria-label="Close encounter form" className="min-h-11 min-w-11 text-white hover:text-gray-300 text-lg">✕</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-5">
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Visit Type</label>
-            <select
-              value={formData.visitType}
-              onChange={(e) => setFormData({ ...formData, visitType: e.target.value })}
-              className="w-full border rounded-lg p-2.5 text-sm outline-none"
-            >
-              <option value="General Outpatient">General Outpatient (OPD)</option>
-              <option value="Emergency Care">Emergency Care</option>
-              <option value="Direct Admission">Direct Ward Admission</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Chief Complaint</label>
+            <label htmlFor="encounter-chief-complaint" className="mb-1 block text-sm font-semibold text-gray-700">
+              Reason for visit
+            </label>
             <textarea
+              id="encounter-chief-complaint"
               rows="3"
               placeholder="Primary symptoms or visit reason..."
-              value={formData.chiefComplaint}
-              onChange={(e) => setFormData({ ...formData, chiefComplaint: e.target.value })}
+              value={chiefComplaint}
+              onChange={(e) => setChiefComplaint(e.target.value)}
               required
-              className="w-full border rounded-lg p-2.5 text-sm outline-none"
+              className="w-full rounded-lg border p-3 text-base outline-none focus:ring-2 focus:ring-slate-700"
             ></textarea>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-3 border-t">
+          {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+
+          <div className="flex flex-col-reverse gap-2 border-t pt-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              disabled={saving}
+              className="min-h-11 rounded-lg border px-4 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800"
+              disabled={saving || !chiefComplaint.trim()}
+              className="min-h-11 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              Confirm Check-In
+              {saving ? 'Saving…' : 'Save encounter'}
             </button>
           </div>
         </form>

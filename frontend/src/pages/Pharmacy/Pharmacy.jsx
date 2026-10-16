@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import API from '../../api';
 
 const Pharmacy = () => {
@@ -21,7 +22,10 @@ const Pharmacy = () => {
   }, []);
 
   useEffect(() => {
-    fetchPrescriptions();
+    const initialFetch = window.setTimeout(() => {
+      void fetchPrescriptions();
+    }, 0);
+    return () => window.clearTimeout(initialFetch);
   }, [fetchPrescriptions]);
 
   const dispensePrescription = async (prescription) => {
@@ -51,7 +55,7 @@ const Pharmacy = () => {
         <table className="w-full min-w-[700px] text-left text-sm">
           <thead className="border-b bg-green-50 text-xs font-bold uppercase text-green-900">
             <tr>
-              <th className="p-4">MRN</th>
+              <th className="p-4">Tracking No.</th>
               <th className="p-4">Patient Name</th>
               <th className="p-4">Medication & Dosage</th>
               <th className="p-4">Qty</th>
@@ -73,9 +77,18 @@ const Pharmacy = () => {
               return (
                 <tr key={prescription._id} className="hover:bg-gray-50">
                   <td className="p-4 font-mono font-bold text-blue-700">
-                    {patient?.mrn || patient?.patientId || '—'}
+                    {patient?.patientId || '—'}
                   </td>
-                  <td className="p-4 font-bold text-gray-900">{patientName || 'Patient unavailable'}</td>
+                  <td className="p-4 font-bold text-gray-900">
+                    {patient?._id ? (
+                      <Link
+                        to={`/patients/${encodeURIComponent(patient.patientId)}`}
+                        className="inline-flex min-h-11 items-center text-left text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {patientName || 'View patient record'}
+                      </Link>
+                    ) : 'Patient unavailable'}
+                  </td>
                   <td className="p-4">
                     <p className="font-bold text-gray-800">{prescription.medicationName}</p>
                     <p className="text-xs text-gray-500">{prescription.dosage}</p>
