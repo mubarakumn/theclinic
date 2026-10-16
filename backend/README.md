@@ -1,9 +1,19 @@
 # Backend configuration
 
-Staff invitations require SMTP settings in the backend environment. Copy the
-SMTP variables from `.env.example` into the backend `.env` file and provide
-values from your mail provider. Use port `587` with `SMTP_SECURE=false` or port
-`465` with `SMTP_SECURE=true`. `CLIENT_URL` must be the public frontend origin.
+Copy `backend/.env.example` to `backend/.env` and set the backend port,
+MongoDB connection string, frontend origin, and a strong random JWT secret.
+`JWT_EXPIRES_IN` controls token lifetime using a duration such as `1d` or
+`30d`. The legacy `JWT_COOKIE_EXPIRES_IN` setting is treated as a number of
+days only when `JWT_EXPIRES_IN` is not set.
+
+The frontend reads its API URL from `frontend/.env` as
+`VITE_API_BASE_URL`, including the `/api/v1` prefix. For local development,
+copy `frontend/.env.example` to `frontend/.env`. For production, configure
+both the frontend API URL and backend `CLIENT_URL` to the deployed origins.
+
+Staff invitations require SMTP settings in the backend environment. Provide
+the SMTP values from your mail provider. Use port `587` with
+`SMTP_SECURE=false` or port `465` with `SMTP_SECURE=true`.
 
 When an administrator adds a staff member, the invitation is sent to that
 member's email address. Invitation links expire after 48 hours and can be

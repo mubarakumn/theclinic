@@ -1,10 +1,11 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+import config from "../config/config.js";
 
 const generateToken = (userId, tenantId) => {
   return jwt.sign(
-    { id: userId, tenantId }, 
-    process.env.JWT_SECRET || 'fallback_secret', 
-    { expiresIn: '30d' }
+    { id: userId, tenantId },
+    config.JWT_SECRET,
+    { expiresIn: config.JWT_EXPIRES_IN },
   );
 };
 

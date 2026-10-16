@@ -1,16 +1,9 @@
 import User from "../models/User.js";
 import Tenant from "../models/Tenant.js";
-import jwt from "jsonwebtoken";
 import Role from "../models/Role.js";
 import { createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
-
-// Helper to generate JWT tokens
-const generateToken = (userId, tenantId) => {
-  return jwt.sign({ id: userId, tenantId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || "1d",
-  });
-};
+import generateToken from "../utils/generateToken.js";
 
 // Helper function to resolve permissions for a given role name
 const getPermissionsForRole = async (roleName, tenantId) => {
