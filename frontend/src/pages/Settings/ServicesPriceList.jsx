@@ -5,6 +5,7 @@ const categories = [
   ['CONSULTATION', 'Consultation'],
   ['LABORATORY', 'Laboratory'],
   ['RADIOLOGY', 'Radiology'],
+  ['PHARMACY', 'Pharmacy'],
   ['BED_NIGHT', 'Admissions'],
   ['SURGERY', 'Surgery'],
   ['NURSING_CARE', 'Nursing care'],

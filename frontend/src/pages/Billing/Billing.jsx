@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import API from '../../api';
+import { useAuth } from '../../contexts/AuthContext';
 
-const departments = ['Consultation', 'Laboratory', 'Pharmacy', 'Admissions', 'Radiology', 'Registration'];
-const paymentMethods = ['POS', 'Bank Transfer', 'Cash'];
+const paymentMethods = ['Cash', 'Bank Transfer', 'POS', 'Card', 'Other'];
 
 const Billing = () => {
+  const { role } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [services, setServices] = useState([]);
   const [patientId, setPatientId] = useState('');
-  const [department, setDepartment] = useState('Consultation');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('POS');
+  const [servicePriceId, setServicePriceId] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [discount, setDiscount] = useState('0');
+  const [discountReason, setDiscountReason] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [otherMethod, setOtherMethod] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -22,12 +27,14 @@ const Billing = () => {
     try {
       setLoading(true);
       setError('');
-      const [invoiceResponse, patientResponse] = await Promise.all([
+      const [invoiceResponse, patientResponse, serviceResponse] = await Promise.all([
         API.get('/invoices'),
         API.get('/patients'),
+        API.get('/settings/tariffs'),
       ]);
       setInvoices(invoiceResponse.data.data || []);
       setPatients(patientResponse.data.data || []);
+      setServices(serviceResponse.data.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load billing data.');
     } finally {
@@ -44,9 +51,25 @@ const Billing = () => {
 
   const createInvoice = async (event) => {
     event.preventDefault();
-    const numericAmount = Number(amount);
-    if (!patientId || !description.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError('Select a patient and enter an item description and positive amount.');
+    const selectedService = services.find((service) => service._id === servicePriceId);
+    const numericQuantity = Number(quantity);
+    const numericDiscount = Number(discount);
+    if (
+      !patientId ||
+      !selectedService ||
+      !Number.isInteger(numericQuantity) ||
+      numericQuantity < 1 ||
+      !Number.isFinite(numericDiscount) ||
+      numericDiscount < 0 ||
+      !selectedService?.isActive ||
+      Number(selectedService?.price || 0) * numericQuantity <= 0 ||
+      numericDiscount >= Number(selectedService?.price || 0) * numericQuantity
+    ) {
+      setError('Select a patient and active service, and enter a positive whole-number quantity and valid discount.');
+      return;
+    }
+    if (numericDiscount > 0 && !discountReason.trim()) {
+      setError('Enter a reason for the discount.');
       return;
     }
 
@@ -56,11 +79,15 @@ const Billing = () => {
       setMessage('');
       const { data } = await API.post('/invoices', {
         patientId,
-        items: [{ department, description: description.trim(), amount: numericAmount }],
+        items: [{ servicePriceId, quantity: numericQuantity }],
+        discount: numericDiscount,
+        discountReason: discountReason.trim(),
       });
       setInvoices((current) => [data.data, ...current]);
-      setDescription('');
-      setAmount('');
+      setServicePriceId('');
+      setQuantity('1');
+      setDiscount('0');
+      setDiscountReason('');
       setMessage('Invoice created.');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create invoice.');
@@ -70,14 +97,22 @@ const Billing = () => {
   };
 
   const processPayment = async (invoice) => {
+    if (paymentMethod === 'Other' && !otherMethod.trim()) {
+      setError('Specify the payment method before recording payment.');
+      return;
+    }
     try {
       setSaving(true);
       setError('');
       setMessage('');
       const { data } = await API.post(`/invoices/${invoice._id}/payments`, {
         paymentMethod,
+        reference: paymentReference.trim(),
+        otherMethod: otherMethod.trim(),
       });
       setInvoices((current) => current.map((item) => item._id === invoice._id ? data.data : item));
+      setPaymentReference('');
+      setOtherMethod('');
       setMessage(`Payment recorded for ${invoice.invoiceNo}.`);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to record payment.');
@@ -87,12 +122,18 @@ const Billing = () => {
   };
 
   const formatMoney = (value) => `₦${Number(value || 0).toLocaleString()}`;
+  const selectedService = services.find((service) => service._id === servicePriceId);
+  const canApplyDiscount = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(role);
+  const invoicePreview = Math.max(
+    0,
+    Number(selectedService?.price || 0) * Number(quantity || 0) - Number(discount || 0),
+  );
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Billing & Payments</h1>
-        <p className="text-sm text-gray-500">Create patient invoices and record payments against outstanding invoices.</p>
+        <p className="text-sm text-gray-500">Invoice from the clinic tariff master, apply authorized discounts, and record payment receipts.</p>
       </div>
 
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -100,7 +141,7 @@ const Billing = () => {
 
       <form onSubmit={createInvoice} className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
         <h2 className="border-b pb-2 font-bold text-gray-900">Create Invoice</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="text-xs font-bold text-gray-600">
             Patient
             <select
@@ -118,47 +159,77 @@ const Billing = () => {
             </select>
           </label>
           <label className="text-xs font-bold text-gray-600">
-            Department
+            Service tariff
             <select
-              value={department}
-              onChange={(event) => setDepartment(event.target.value)}
+              required
+              value={servicePriceId}
+              onChange={(event) => setServicePriceId(event.target.value)}
               className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
             >
-              {departments.map((item) => <option key={item}>{item}</option>)}
+              <option value="">Select active service</option>
+              {services.filter((service) => service.isActive && Number(service.price) > 0).map((service) => (
+                <option key={service._id} value={service._id}>
+                  {service.serviceName} · {service.category} · {formatMoney(service.price)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-xs font-bold text-gray-600">
-            Charge description
+            Quantity
             <input
               required
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              min="1"
+              step="1"
+              type="number"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
               className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
             />
           </label>
-          <div className="flex items-end gap-2">
-            <label className="flex-1 text-xs font-bold text-gray-600">
-              Amount (₦)
-              <input
-                required
-                min="0.01"
-                type="number"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
-              />
-            </label>
+          {canApplyDiscount && (
+            <>
+              <label className="text-xs font-bold text-gray-600">
+                Fixed discount (₦)
+                <input
+                  min="0"
+                  step="0.01"
+                  type="number"
+                  value={discount}
+                  onChange={(event) => setDiscount(event.target.value)}
+                  className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+                />
+              </label>
+              {Number(discount) > 0 && (
+                <label className="text-xs font-bold text-gray-600 md:col-span-2">
+                  Discount reason
+                  <input
+                    required
+                    value={discountReason}
+                    onChange={(event) => setDiscountReason(event.target.value)}
+                    className="mt-1 w-full rounded-lg border p-2 text-sm font-normal"
+                  />
+                </label>
+              )}
+            </>
+          )}
+          <div className="flex flex-wrap items-end justify-between gap-3 md:col-span-3">
+            <p className="text-sm font-semibold text-gray-700">
+              Unit price: {formatMoney(selectedService?.price)} · Total after discount: {formatMoney(invoicePreview)}
+            </p>
             <button
               type="submit"
-              disabled={saving || patients.length === 0}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+              disabled={saving || loading || patients.length === 0 || !services.some((service) => service.isActive && Number(service.price) > 0)}
+              className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Create'}
+              {saving ? 'Saving...' : 'Create invoice'}
             </button>
           </div>
         </div>
         {!loading && patients.length === 0 && (
           <p className="text-xs text-gray-500">Register a patient before creating an invoice.</p>
+        )}
+        {!loading && !services.some((service) => service.isActive && Number(service.price) > 0) && (
+          <p className="text-xs text-amber-700">Configure active services and prices in Settings before creating invoices.</p>
         )}
       </form>
 
@@ -174,6 +245,26 @@ const Billing = () => {
             >
               {paymentMethods.map((method) => <option key={method}>{method}</option>)}
             </select>
+          </label>
+          {paymentMethod === 'Other' && (
+            <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
+              Specify method
+              <input
+                required
+                value={otherMethod}
+                onChange={(event) => setOtherMethod(event.target.value)}
+                placeholder="e.g. mobile wallet"
+                className="rounded-lg border p-2 text-sm font-normal"
+              />
+            </label>
+          )}
+          <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
+            Reference (optional)
+            <input
+              value={paymentReference}
+              onChange={(event) => setPaymentReference(event.target.value)}
+              className="rounded-lg border p-2 text-sm font-normal"
+            />
           </label>
         </div>
         {loading ? (
@@ -201,12 +292,30 @@ const Billing = () => {
                     </p>
                     <ul className="mt-1 text-sm text-gray-600">
                       {invoice.items?.map((item, index) => (
-                        <li key={`${invoice._id}-${index}`}>{item.description} · {item.department}</li>
+                        <li key={`${invoice._id}-${index}`}>
+                          {item.description} · {item.department} · {item.quantity || 1} × {formatMoney(item.unitPrice ?? item.amount)}
+                        </li>
                       ))}
                     </ul>
+                    {Number(invoice.discount) > 0 && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Discount: {formatMoney(invoice.discount)}{invoice.discountReason ? ` · ${invoice.discountReason}` : ''}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Subtotal {formatMoney(invoice.subtotal)} · Discount {formatMoney(invoice.discount)}
+                    </p>
                     <p className="mt-1 text-xs text-gray-500">
                       {invoice.status} · {invoice.paymentMode || 'Payment pending'}
                     </p>
+                    {invoice.payments?.map((payment) => (
+                      <p key={payment._id} className="mt-1 text-xs text-gray-600">
+                        Received {formatMoney(payment.amount)} by {payment.paymentMethod}
+                        {payment.notes ? ` (${payment.notes})` : ''}
+                        {payment.reference ? ` · Ref: ${payment.reference}` : ''}
+                        {' · '}{new Date(payment.paidAt).toLocaleString()}
+                      </p>
+                    ))}
                   </div>
                   <div className="flex items-center justify-between gap-4 md:justify-end">
                     <span className="font-mono text-lg font-bold text-gray-900">{formatMoney(invoice.totalAmount)}</span>

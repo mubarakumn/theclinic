@@ -53,13 +53,25 @@ export const getServicePrices = async (req, res) => {
 export const createServicePrice = async (req, res) => {
   try {
     const { category, serviceName, serviceCode, price, description } = req.body;
+    const numericPrice = Number(price);
+    if (
+      typeof serviceName !== 'string' ||
+      !serviceName.trim() ||
+      price === undefined ||
+      price === null ||
+      price === '' ||
+      !Number.isFinite(numericPrice) ||
+      numericPrice < 0
+    ) {
+      return res.status(400).json({ success: false, message: 'Service name and a valid non-negative price are required' });
+    }
 
     const servicePrice = await ServicePrice.create({
       tenantId: req.user.tenantId,
       category,
-      serviceName,
+      serviceName: serviceName.trim(),
       serviceCode,
-      price,
+      price: numericPrice,
       description,
     });
 
@@ -75,6 +87,21 @@ export const updateServicePrice = async (req, res) => {
     const updates = {};
     for (const field of ['category', 'serviceName', 'serviceCode', 'price', 'description', 'isActive']) {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    if (updates.serviceName !== undefined) {
+      if (typeof updates.serviceName !== 'string' || !updates.serviceName.trim()) {
+        return res.status(400).json({ success: false, message: 'Service name cannot be empty' });
+      }
+      updates.serviceName = updates.serviceName.trim();
+    }
+    if (updates.price !== undefined) {
+      if (updates.price === null || updates.price === '') {
+        return res.status(400).json({ success: false, message: 'Service price is required' });
+      }
+      updates.price = Number(updates.price);
+      if (!Number.isFinite(updates.price) || updates.price < 0) {
+        return res.status(400).json({ success: false, message: 'Service price must be a valid non-negative number' });
+      }
     }
     const servicePrice = await ServicePrice.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.user.tenantId },

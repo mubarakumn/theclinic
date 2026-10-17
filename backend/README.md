@@ -40,6 +40,21 @@ linked during registration or later from the patient profile by an
 administrator or receptionist. Physical card numbers must be unique within a
 clinic.
 
+## Service tariffs and payments
+
+The tenant's active **Services & Baseline Tariff Master** is the source of
+truth for clinic service charges. New radiology, laboratory, prescription,
+and invoice records must reference an active tariff from that clinic; amounts
+are read and calculated by the backend, not accepted from the browser.
+Invoices retain a snapshot of the tariff name and price at creation, so later
+tariff changes do not alter historical invoices.
+
+Fixed invoice discounts are recorded with a reason and may be applied by
+administrators and accountants. Successful invoice payments are recorded
+against the invoice with the amount, payment method, staff member, time, and
+optional reference. Supported methods are cash, bank transfer, POS, card, and
+other (with the method described).
+
 ## Offline work and synchronization
 
 Offline support is intentionally limited to restoring the session of a user

@@ -11,7 +11,7 @@ const servicePriceSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['CONSULTATION', 'LABORATORY', 'RADIOLOGY', 'BED_NIGHT', 'SURGERY', 'NURSING_CARE', 'OTHER'],
+      enum: ['CONSULTATION', 'LABORATORY', 'RADIOLOGY', 'PHARMACY', 'BED_NIGHT', 'SURGERY', 'NURSING_CARE', 'OTHER'],
       default: 'CONSULTATION',
     },
     serviceName: {

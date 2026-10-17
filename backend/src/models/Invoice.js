@@ -4,9 +4,12 @@ const invoiceItemSchema = new mongoose.Schema({
   department: {
     type: String,
     required: true,
-    enum: ['Consultation', 'Laboratory', 'Pharmacy', 'Admissions', 'Radiology', 'Registration'],
+    enum: ['Consultation', 'Laboratory', 'Pharmacy', 'Admissions', 'Radiology', 'Registration', 'Surgery', 'Nursing care', 'Other'],
   },
+  servicePriceId: { type: mongoose.Schema.Types.ObjectId, ref: 'ServicePrice' },
   description: { type: String, required: true },
+  quantity: { type: Number, min: 1, default: 1 },
+  unitPrice: { type: Number, min: 0 },
   amount: { type: Number, required: true, min: 0 },
   sourceId: { type: mongoose.Schema.Types.ObjectId }, // Reference to LabOrder, Prescription, Bed charge, etc.
 });
@@ -29,10 +32,11 @@ const invoiceSchema = new mongoose.Schema(
     items: [invoiceItemSchema],
     subtotal: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
+    discountReason: { type: String, trim: true },
     totalAmount: { type: Number, required: true, min: 0 },
     paymentMode: {
       type: String,
-      enum: ['POS', 'Bank Transfer', 'Cash', 'Pending'],
+      enum: ['POS', 'Bank Transfer', 'Cash', 'Card', 'Other', 'Pending'],
       default: 'Pending',
     },
     status: {

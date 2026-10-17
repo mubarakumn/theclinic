@@ -172,9 +172,16 @@ export const AppRoutes = () => {
           >
             <Route path="/users" element={<Users />} />
             <Route path="/roles-permissions" element={<RolesPermissions />} />
-            <Route path="/services-price-list" element={<ServicesPriceList />} />
             <Route path="/subscription-settings" element={<SubscriptionSettings />} />
             <Route path="/audit-logs" element={<AuditLogs />} />
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ACCOUNTANT]} />
+            }
+          >
+            <Route path="/services-price-list" element={<ServicesPriceList />} />
           </Route>
 
         </Route>

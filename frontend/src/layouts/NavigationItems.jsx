@@ -13,6 +13,7 @@ import {
   UserCog,
   ShieldCheck,
   History,
+  Tags,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLES, ALL_ROLES } from "../routes/roles";
@@ -52,10 +53,11 @@ const navigationConfig = [
   {
     title: "ADMINISTRATION",
     group: true,
-    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN],
+    allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ACCOUNTANT],
     children: [
       { title: "Users", path: "/users", icon: <UserCog size={20} />, allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN] },
       { title: "Roles & Permissions", path: "/roles-permissions", icon: <ShieldCheck size={20} />, allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN] },
+      { title: "Service Prices", path: "/services-price-list", icon: <Tags size={20} />, allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.ACCOUNTANT] },
       { title: "Audit Logs", path: "/audit-logs", icon: <History size={20} />, allowedRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN] },
     ],
   },

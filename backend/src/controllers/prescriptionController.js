@@ -1,5 +1,7 @@
 import Prescription from '../models/Prescription.js';
 import Patient from '../models/Patient.js';
+import ServicePrice from '../models/ServicePrice.js';
+import mongoose from 'mongoose';
 
 const populateFields = (tenantId) => [
   { path: 'patientId', match: { tenantId }, select: 'firstName lastName patientId' },
@@ -8,31 +10,45 @@ const populateFields = (tenantId) => [
 
 export const createPrescription = async (req, res) => {
   try {
-    const { patientId, medicationName, dosage, quantity, unitPrice = 0 } = req.body;
-    if (!patientId || !medicationName || !dosage || !Number.isFinite(Number(quantity)) || Number(quantity) < 1) {
+    const { patientId, servicePriceId, dosage, quantity } = req.body;
+    if (
+      !mongoose.Types.ObjectId.isValid(patientId) ||
+      !mongoose.Types.ObjectId.isValid(servicePriceId) ||
+      typeof dosage !== 'string' ||
+      !dosage.trim() ||
+      !Number.isInteger(Number(quantity)) ||
+      Number(quantity) < 1
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Patient, medication, dosage, and a positive quantity are required',
+        message: 'Patient, pharmacy tariff, dosage, and a positive whole-number quantity are required',
       });
     }
 
-    const patient = await Patient.findOne({ _id: patientId, tenantId: req.user.tenantId });
+    const [patient, servicePrice] = await Promise.all([
+      Patient.findOne({ _id: patientId, tenantId: req.tenantId }),
+      ServicePrice.findOne({
+        _id: servicePriceId,
+        tenantId: req.tenantId,
+        category: 'PHARMACY',
+        isActive: true,
+      }),
+    ]);
     if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
-
-    const price = Number(unitPrice);
-    if (!Number.isFinite(price) || price < 0) {
-      return res.status(400).json({ success: false, message: 'Unit price must be a non-negative number' });
+    if (!servicePrice) {
+      return res.status(400).json({ success: false, message: 'Select an active pharmacy tariff from the service price list' });
     }
 
     const prescription = await Prescription.create({
-      tenantId: req.user.tenantId,
-      patientId,
+      tenantId: req.tenantId,
+      patientId: patient._id,
       doctorId: req.user._id,
-      medicationName,
-      dosage,
+      servicePriceId: servicePrice._id,
+      medicationName: servicePrice.serviceName,
+      dosage: dosage.trim(),
       quantity: Number(quantity),
-      unitPrice: price,
-      totalPrice: Number(quantity) * price,
+      unitPrice: servicePrice.price,
+      totalPrice: Number(quantity) * servicePrice.price,
     });
 
     res.status(201).json({
